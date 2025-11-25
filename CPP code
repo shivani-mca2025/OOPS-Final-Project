@@ -1,0 +1,325 @@
+%%writefile project.cpp
+/*
+ * PROJECT: Tic Tac Toe Game
+ * AUTHORS: SHIVANI AND PUJA KUMARI
+ *
+ * OBJECTIVE:
+ * To implement a console-based Tic Tac Toe game that allows two players to play
+ * against each other (Player vs Player) or one player to play against a computer
+ * (Player vs Computer). The game tracks moves, checks for win conditions,
+ * and declares a winner or a tie.
+ *
+ * INPUT:
+ * - User choice for game mode (1 for Player vs Player, 2 for Player vs Computer).
+ * - Player 1's choice of marker ('X' or 'O').
+ * - Player 2's (or Computer's) choice of marker (automatically determined for PvC,
+ *   user input for PvP, ensuring different from P1).
+ * - Slot numbers (1-9) for placing markers during each turn.
+ *
+ * OUTPUT:
+ * - Current state of the Tic Tac Toe board displayed to the console after each valid move.
+ * - Interactive prompts for user input (e.g., "Enter your slot:").
+ * - Informative messages indicating whose turn it is.
+ * - Error messages for invalid moves (e.g., "Slot already occupied!", "Invalid slot! Please enter a number between 1 and 9.").
+ * - Clear declaration of the winner (Player 1, Player 2, or Computer) or a tie game.
+ * - Introductory welcome messages and game over notifications.
+ *
+ * SIDE EFFECTS:
+ * - Modification of the global `board` array to store player markers, visually representing the game state.
+ * - The `srand(time(0))` function in `computerTurn()` seeds the random number generator, affecting subsequent `rand()` calls.
+ * - Extensive console output for displaying the game board, prompts, and game status updates.
+ */
+
+// --- HEADER FILES ---
+#include <iostream>  // For standard input/output operations (cin, cout)
+#include <cstdlib>   // Required for rand() and srand() for random number generation
+#include <ctime>     // Required for time() to seed the random number generator, ensuring different random sequences each run
+#include <cctype>    // Required for toupper() to convert character input to uppercase for consistent marker handling
+
+// Using the standard namespace to avoid prefixing std:: to standard library components like cout, cin, etc.
+using namespace std;
+
+// --- GLOBAL DECLARATIONS ---
+// The 3x3 game board. Each element initially holds a character representing the slot number (1-9).
+// 'X' or 'O' will replace the number when a player successfully makes a move.
+char board[3][3] = { {'1', '2', '3'}, {'4', '5', '6'}, {'7', '8', '9'} };
+// Stores the marker ('X' or 'O') of the player whose turn it currently is. This alternates between 'X' and 'O'.
+char current_marker;
+// Stores the number (1 or 2) of the player whose turn it currently is. This alternates between 1 and 2.
+int current_player;
+
+
+// --- FUNCTION: drawBoard ---
+/**
+ * @brief Draws the current state of the Tic Tac Toe board to the console.
+ *        Each slot is displayed with its current content (original number, 'X', or 'O').
+ *        This function provides the visual representation of the game.
+ */
+void drawBoard() {
+    cout << " " << board[0][0] << " | " << board[0][1] << " | " << board[0][2] << "\n";
+    cout << "---|---|---\n";
+    cout << " " << board[1][0] << " | " << board[1][1] << " | " << board[1][2] << "\n";
+    cout << "---|---|---\n";
+    cout << " " << board[2][0] << " | " << board[2][1] << " | " << board[2][2] << "\n";
+    cout << "\n"; // Add an extra newline for better spacing after the board.
+}
+
+
+// --- FUNCTION: placeMarker ---
+/**
+ * @brief Attempts to place the current player's marker on the board at the specified slot.
+ *        This function validates the move and updates the board if the move is legal.
+ * @param slot An integer from 1 to 9 representing the desired position on the board.
+ * @return true if the marker was successfully placed (i.e., the slot was within bounds and empty);
+ *         false otherwise (i.e., the slot was already occupied or out of valid range).
+ */
+bool placeMarker(int slot) {
+    // Convert the 1-9 slot number (user input) to 0-indexed row and column for array access.
+    // (slot - 1) gives a 0-8 index. Integer division by 3 gives the row (0, 1, or 2).
+    int row = (slot - 1) / 3;
+    // Modulo 3 gives the column (0, 1, or 2).
+    int col = (slot - 1) % 3;
+
+    // Check if the chosen slot is within valid bounds (1-9) AND is not already taken by 'X' or 'O'.
+    if (slot >= 1 && slot <= 9 && board[row][col] != 'X' && board[row][col] != 'O') {
+        board[row][col] = current_marker; // Place the current player's marker on the board.
+        return true; // Marker placed successfully.
+    }
+    // If the slot is invalid or already occupied, return false.
+    return false;
+}
+
+
+// --- FUNCTION: winner ---
+/**
+ * @brief Checks if the current player has won the game after their last move.
+ *        It thoroughly checks all possible winning conditions: rows, columns, and both diagonals.
+ * @return The number of the current player (1 or 2) if they have achieved a winning line;
+ *         0 if there is no winner yet.
+ */
+int winner() {
+    // Check all three rows for a winning condition.
+    for (int i = 0; i < 3; i++) {
+        if (board[i][0] == board[i][1] && board[i][1] == board[i][2])
+            return current_player; // Current player has won by completing a row.
+    }
+
+    // Check all three columns for a winning condition.
+    for (int i = 0; i < 3; i++) {
+        if (board[0][i] == board[1][i] && board[1][i] == board[2][i])
+            return current_player; // Current player has won by completing a column.
+    }
+
+    // Check the main diagonal (from top-left to bottom-right).
+    if (board[0][0] == board[1][1] && board[1][1] == board[2][2])
+        return current_player; // Current player has won by completing the main diagonal.
+
+    // Check the anti-diagonal (from top-right to bottom-left).
+    if (board[0][2] == board[1][1] && board[1][1] == board[2][0])
+        return current_player; // Current player has won by completing the anti-diagonal.
+
+    return 0; // If no winning condition is met, return 0, indicating no winner yet.
+}
+
+
+// --- FUNCTION: switchPlayer ---
+/**
+ * @brief Switches the current player for the next turn.
+ *        This ensures players alternate turns in the game.
+ *        It only switches the player number; the marker is set in the game loop.
+ */
+void switchPlayer() {
+    if (current_player == 1) {
+        current_player = 2;   // Switch to Player 2.
+    }
+    else {
+        current_player = 1;   // Switch to Player 1.
+    }
+}
+
+
+// --- FUNCTION: computerTurn ---
+/**
+ * @brief Handles the computer's turn in a Player vs. Computer game mode.
+ *        The computer randomly selects an available slot on the board.
+ *        It will keep generating random slots until a valid, unoccupied position is found.
+ */
+void computerTurn() {
+    // Seed the random number generator using the current time.
+    // This ensures that the computer's moves are different each time the game is played.
+    srand(time(0));
+    int slot; // Variable to store the randomly chosen slot.
+    do {
+        slot = rand() % 9 + 1; // Generate a random number between 1 and 9 (inclusive).
+    } while (!placeMarker(slot)); // Keep trying until a valid, empty slot is found and marker is placed.
+    cout << "Computer chose slot " << slot << "\n"; // Inform the user about the computer's move.
+}
+
+
+// --- FUNCTION: game ---
+/**
+ * @brief Manages the main game loop for Tic Tac Toe.
+ *        This function orchestrates player turns, move validation, board updates,
+ *        win checks, and tie conditions, handling both Player vs Player and
+ *        Player vs Computer modes.
+ * @param againstComputer A boolean flag; true if the game is Player vs. Computer,
+ *                        false if it is Player vs. Player.
+ */
+void game(bool againstComputer) {
+    char marker_p1; // Stores the marker ('X' or 'O') chosen by Player 1.
+    char marker_p2; // Stores the marker ('X' or 'O') for Player 2 or the Computer.
+
+    // --- Player 1 chooses their marker ---
+    // Loop until Player 1 chooses a valid marker ('X' or 'O').
+    do {
+        cout << "Player 1, choose your marker (X or O): ";
+        cin >> marker_p1;
+        marker_p1 = toupper(marker_p1); // Convert input to uppercase for case-insensitive handling.
+        if (marker_p1 != 'X' && marker_p1 != 'O') {
+            cout << "Invalid choice! Please enter 'X' or 'O'.\n";
+        }
+    } while (marker_p1 != 'X' && marker_p1 != 'O');
+
+    // --- Determine Player 2's or Computer's marker based on game mode ---
+    if (againstComputer) {
+        // In PvC mode, the Computer (Player 2) automatically takes the opposite marker to Player 1.
+        marker_p2 = (marker_p1 == 'X') ? 'O' : 'X';
+        cout << "Computer is player 2 and will use marker " << marker_p2 << "\n";
+    } else {
+        // In PvP mode, Player 2 explicitly chooses their marker.
+        // Loop until Player 2 chooses a valid marker different from Player 1's.
+        do {
+            cout << "Player 2, choose your marker (X or O): ";
+            cin >> marker_p2;
+            marker_p2 = toupper(marker_p2); // Convert input to uppercase.
+            if (marker_p2 != 'X' && marker_p2 != 'O') {
+                cout << "Invalid choice! Please enter 'X' or 'O'.\n";
+            } else if (marker_p2 == marker_p1) {
+                cout << "Marker already taken by Player 1. Please choose a different marker: ";
+            }
+        } while (marker_p2 == marker_p1 || (marker_p2 != 'X' && marker_p2 != 'O'));
+    }
+
+    // --- Initialize game state for the first turn ---
+    current_player = 1;         // Player 1 always starts the game.
+    current_marker = marker_p1; // Set the initial current marker to Player 1's choice.
+
+    // --- Display the initial empty board to the players ---
+    cout << "\n--- Game Start ---\n";
+    drawBoard();
+
+    int player_won = 0; // Variable to store the winner (0 = no winner, 1 = P1, 2 = P2/Computer).
+    int moves_made = 0; // Counter for the total number of valid moves made, used to detect ties.
+
+    // --- Main Game Loop: Continues for a maximum of 9 turns (the total number of cells on the board) ---
+    for (int i = 0; i < 9; i++) {
+        bool move_successful = false; // Flag to indicate if a valid move was made in the current turn.
+
+        // Set current_marker based on current_player before the move attempt
+        if (current_player == 1) {
+            current_marker = marker_p1;
+        } else {
+            current_marker = marker_p2;
+        }
+
+        while (!move_successful) {
+            // Check if it's a human player's turn (Player 1 always, or Player 2 in PvP).
+            if (current_player == 1 || !againstComputer) {
+                cout << "Player " << current_player << " (" << current_marker << "), enter your slot (1-9): ";
+                int slot;
+                cin >> slot;
+
+                // Input validation for the chosen slot.
+                if (slot < 1 || slot > 9) {
+                    cout << "Invalid slot! Please enter a number between 1 and 9.\n";
+                    continue; // Re-prompt for input; this attempt does not count as a move.
+                }
+
+                // Attempt to place the marker on the board.
+                if (!placeMarker(slot)) {
+                    cout << "Slot already occupied! Please try again.\n";
+                    continue; // Re-prompt for input; this attempt does not count as a move.
+                }
+                move_successful = true; // A valid move was made by the human player.
+            } else { // It's the Computer's turn (in PvC mode, current_player == 2).
+                cout << "Computer's turn...\n";
+                computerTurn(); // The computer makes its move.
+                move_successful = true; // The computer's move is always considered successful once `computerTurn` returns.
+            }
+        }
+
+        moves_made++; // Increment the count of successful moves made in the game.
+        drawBoard();  // Display the updated board after the move.
+
+        player_won = winner(); // Check if the player who just moved has won the game.
+
+        // --- Check for a winner after the current move ---
+        if (player_won != 0) {
+            // A winning condition has been met.
+            if (player_won == 1) {
+                cout << "Congratulations! Player 1 wins!\n";
+            } else { // player_won == 2 (Player 2 or Computer)
+                cout << "Congratulations! " << (againstComputer ? "Computer" : "Player 2") << " wins!\n";
+            }
+            break; // Terminate the game loop as a winner is found.
+        }
+
+        // --- Check for a tie game if all 9 moves have been made and no winner ---
+        if (moves_made == 9) {
+            cout << "It's a tie! The board is full, and no player achieved a winning line.\n";
+            break; // Terminate the game loop as it's a tie.
+        }
+
+        switchPlayer(); // If no winner and no tie, switch to the other player for the next turn.
+    }
+
+    cout << "\n--- Game Over ---\n"; // Inform players the game has concluded.
+}
+
+
+// --- FUNCTION: intro ---
+/**
+ * @brief Displays an introductory message for the Tic Tac Toe game.
+ *        This includes the game title, authors, and brief instructions on how to play.
+ */
+void intro()
+{
+    cout << "\n   \t************************\n";
+    cout << "   \t*    TIC TAC TOE GAME  *\n";
+    cout << "   \t************************\n";
+    cout << "\n MADE BY: SHIVANI AND PUJA KUMARI\n"; // Authors of the project.
+
+}
+
+
+// --- MAIN FUNCTION ---
+/**
+ * @brief The main entry point of the Tic Tac Toe game application.
+ *        It displays the introduction, prompts the user for the desired game mode (PvP or PvC),
+ *        and then initiates the game by calling the `game()` function.
+ * @return 0 upon successful execution, indicating the program finished without errors.
+ */
+int main() {
+    intro(); // Display the game introduction and rules.
+
+    cout << "Welcome to Tic Tac Toe! Let's begin.\n";
+    cout << "Choose your desired game mode:\n";
+    cout << "1. Player vs Player (PvP)\n";
+    cout << "2. Player vs Computer (PvC)\n";
+    int choice; // Variable to store the user's choice of game mode.
+    cin >> choice;
+
+    // Validate game mode choice.
+    while (choice != 1 && choice != 2) {
+        cout << "Invalid choice! Please enter 1 for Player vs Player or 2 for Player vs Computer: ";
+        cin >> choice;
+    }
+
+    // Determine if the game is against the computer based on the user's valid choice.
+    bool againstComputer = (choice == 2);
+
+    game(againstComputer); // Start the game with the chosen mode.
+
+    return 0; // Indicate successful program execution.
+}
+// --- END OF PROJECT ---
